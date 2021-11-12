@@ -36,9 +36,10 @@
           <option value="8">8</option>
           <option value="9">9</option>
           <option value="10">10</option>
+          <option value="15">15</option>
         </select>
       </div>
-      <button class="draw-btn" @click="redraw">draw</button>
+      <button class="draw-btn" @click="redraw" :disabled="btnLock">draw</button>
     </div>
   </div>
 </template>
@@ -55,6 +56,9 @@ export default {
       top: 8,
 
       invalid_input: false,
+      timeout1: null,
+      timeout2: null,
+      btnLock: false,
     };
   },
   mounted() {
@@ -64,7 +68,14 @@ export default {
     ctx.scale(1, -1);
   },
   methods: {
-    redraw() {
+    redraw: async function () {
+      this.btnLock = true;
+      if (this.timeout1 != null) {
+        clearTimeout(this.timeout1);
+      }
+      if (this.timeout2 != null) {
+        clearTimeout(this.timeout2);
+      }
       const canvas = document.querySelector(".canvas");
       const ctx = canvas.getContext("2d");
       const count = document.getElementById("select").value;
@@ -113,7 +124,7 @@ export default {
 
         console.log(points, t);
         ctx.beginPath();
-        this.animate(ctx, t, points);
+        await this.animate(ctx, t, points);
         ctx.closePath();
 
         lines = [];
@@ -135,36 +146,43 @@ export default {
         ctx.closePath();
 
         lines = [];
-      }, 1000);
+      }, 2000);
 
-      setTimeout(() => {
-        for (let i = 0; i < count; i++) {
-          console.log(completeLines);
-          let res = this.cohen_sutherland(
-            rect,
-            completeLines[i].a,
-            completeLines[i].b
-          );
-          if (res === -1) {
-            continue;
+      new Promise((resolve) => {
+        setTimeout(() => {
+          for (let i = 0; i < count; i++) {
+            console.log(completeLines);
+            let res = this.cohen_sutherland(
+              rect,
+              completeLines[i].a,
+              completeLines[i].b
+            );
+            if (res === -1) {
+              continue;
+            }
+            (completeLines[i].a = res.a),
+              (completeLines[i].b = res.b),
+              lines.push(completeLines[i].a);
+            lines.push(completeLines[i].b);
+
+            let points = this.calcWaypoints(lines);
+            let t = 1;
+
+            ctx.beginPath();
+            ctx.strokeStyle = "red";
+            this.animate(ctx, t, points);
+            ctx.closePath();
+
+            lines = [];
           }
-          (completeLines[i].a = res.a),
-            (completeLines[i].b = res.b),
-            lines.push(completeLines[i].a);
-          lines.push(completeLines[i].b);
-
-          let points = this.calcWaypoints(lines);
-          let t = 1;
-
-          ctx.beginPath();
-          ctx.strokeStyle = "red";
-          this.animate(ctx, t, points);
-          ctx.closePath();
-
-          lines = [];
-        }
-        completeLines = [];
-      }, 3100);
+          completeLines = [];
+          resolve();
+        }, 4200);
+      }).then(() => {
+        setTimeout(() => {
+          this.btnLock = false;
+        }, 1000);
+      });
     },
     calcWaypoints(vertices) {
       let waypoints = [];
